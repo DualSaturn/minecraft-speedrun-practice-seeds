@@ -6,7 +6,6 @@ package minecraft.speedrun.practice.seeds;
 import kaptainwutax.featureutils.structure.Shipwreck;
 import kaptainwutax.featureutils.structure.Village;
 import kaptainwutax.biomeutils.biome.Biome;
-import kaptainwutax.biomeutils.biome.Biomes;
 import kaptainwutax.biomeutils.source.BiomeSource;
 import kaptainwutax.featureutils.structure.BastionRemnant;
 import kaptainwutax.featureutils.structure.DesertPyramid;
