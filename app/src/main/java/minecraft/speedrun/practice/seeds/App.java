@@ -4,10 +4,12 @@
 package minecraft.speedrun.practice.seeds;
 
 import kaptainwutax.featureutils.structure.Shipwreck;
+import kaptainwutax.featureutils.structure.Village;
 import kaptainwutax.biomeutils.biome.Biome;
 import kaptainwutax.biomeutils.biome.Biomes;
 import kaptainwutax.biomeutils.source.BiomeSource;
 import kaptainwutax.featureutils.structure.BastionRemnant;
+import kaptainwutax.featureutils.structure.DesertPyramid;
 import kaptainwutax.featureutils.structure.Fortress;
 import kaptainwutax.featureutils.structure.RegionStructure;
 import kaptainwutax.mcutils.rand.ChunkRand;
@@ -23,7 +25,7 @@ import java.util.Random;
 
 public class App {
     public static void main(String[] args) {
-        System.out.println(getShipwreckFastionSeed());
+        System.out.println(get1_14ClassicSeed());
     }
 
     /**
@@ -147,6 +149,114 @@ public class App {
      * @return a practice seed
      */
     public static long get1_14ClassicSeed(){
-        return 1L;
+
+        Random javaRandom = new Random();
+        ChunkRand chunkRand = new ChunkRand();
+        final MCVersion VERSION = MCVersion.v1_14_4;
+        final Village VILLAGE = new Village(VERSION);
+        final RegionStructure<?, ?> VILLAGE_STRUCTURE = VILLAGE;
+        final DesertPyramid DESERT_PYRAMID = new DesertPyramid(VERSION);
+        final RegionStructure<?, ?> DESERT_PYRAMID_STRUCTURE = DESERT_PYRAMID;
+        final Fortress FORTRESS = new Fortress(VERSION);
+        final RegionStructure<?, ?> FORTRESS_STRUCTURE = FORTRESS;
+        
+        
+        final RPos[] villageRegions = new RPos[] {
+            new RPos(0, 0, VILLAGE_STRUCTURE.getSpacing() * 16),
+            new RPos(0, -1, VILLAGE_STRUCTURE.getSpacing() * 16),
+            new RPos(-1, 0, VILLAGE_STRUCTURE.getSpacing() * 16),
+            new RPos(-1, -1, VILLAGE_STRUCTURE.getSpacing() * 16)
+        };
+        final RPos[] desertPyramidRegions = new RPos[] {
+            new RPos(0, 0, DESERT_PYRAMID_STRUCTURE.getSpacing() * 16),
+            new RPos(0, -1, DESERT_PYRAMID_STRUCTURE.getSpacing() * 16),
+            new RPos(-1, 0, DESERT_PYRAMID_STRUCTURE.getSpacing() * 16),
+            new RPos(-1, -1, DESERT_PYRAMID_STRUCTURE.getSpacing() * 16)
+        };
+        final RPos[] netherRegions = new RPos[] {
+            new RPos(0, 0, FORTRESS_STRUCTURE.getSpacing() * 16),
+            new RPos(0, -1, FORTRESS_STRUCTURE.getSpacing() * 16),
+            new RPos(-1, 0, FORTRESS_STRUCTURE.getSpacing() * 16),
+            new RPos(-1, -1, FORTRESS_STRUCTURE.getSpacing() * 16)
+        };
+
+
+        long structureStartingPoint = javaRandom.nextLong() % (1L << 48);
+        boolean seedFound = false;
+        long worldSeed = 0;
+
+        while (!seedFound){
+            structureStartingPoint++;
+            structureStartingPoint = structureStartingPoint % (1L << 48);
+
+            ArrayList<CPos> villagePositions = new ArrayList<CPos>(villageRegions.length);
+            ArrayList<CPos> desertPyramidPositions = new ArrayList<CPos>(desertPyramidRegions.length);
+            ArrayList<CPos> fortressPositions = new ArrayList<CPos>(netherRegions.length);
+
+            for (RPos rPos : villageRegions){
+                CPos village = VILLAGE_STRUCTURE.getInRegion(structureStartingPoint, rPos.getX(), rPos.getZ(), chunkRand);
+                if (village != null){
+                    villagePositions.add(village);
+                }
+            }
+
+            for (RPos rPos : desertPyramidRegions){
+                CPos desertPyramid = DESERT_PYRAMID_STRUCTURE.getInRegion(structureStartingPoint, rPos.getX(), rPos.getZ(), chunkRand);
+                if (desertPyramid != null){
+                    desertPyramidPositions.add(desertPyramid);
+                }
+            }
+
+            for (RPos rPos : netherRegions){
+                CPos fortress = FORTRESS_STRUCTURE.getInRegion(structureStartingPoint, rPos.getX(), rPos.getZ(), chunkRand);
+                if (fortress != null){
+                    fortressPositions.add(fortress);
+                }
+            }
+
+            int closeDesertPyramid = -1;
+            int closeVillage = -1;
+            int closeFortress = -1;
+
+            for (int i = 0; i < fortressPositions.size(); i++){ 
+                if(DistanceMetric.EUCLIDEAN.getDistance(fortressPositions.get(i).getX(), fortressPositions.get(i).getY(), fortressPositions.get(i).getZ()) < 8){
+                    closeFortress = i;
+                    break;
+                }
+            }
+            for (int i = 0; i < villagePositions.size(); i++){ 
+                if(DistanceMetric.EUCLIDEAN.getDistance(villagePositions.get(i).getX(), villagePositions.get(i).getY(), villagePositions.get(i).getZ()) < 8){
+                    closeVillage = i;
+                    break;
+                }
+            }
+            for (int i = 0; i < desertPyramidPositions.size(); i++){ 
+                if(DistanceMetric.EUCLIDEAN.getDistance(desertPyramidPositions.get(i).getX(), desertPyramidPositions.get(i).getY(), desertPyramidPositions.get(i).getZ()) < 8){
+                    closeDesertPyramid = i;
+                    break;
+                }
+            }
+
+            if (closeDesertPyramid==-1 || closeVillage==-1 || closeFortress==-1) continue;
+
+            for (long upperBits = 0; upperBits < 1L << 16; upperBits++){
+                worldSeed = StructureSeed.toWorldSeed(structureStartingPoint, upperBits);
+                BiomeSource overworldBiomeSource = BiomeSource.of(Dimension.OVERWORLD, VERSION, worldSeed);
+                BiomeSource netherBiomeSource = BiomeSource.of(Dimension.NETHER, VERSION, worldSeed);
+                boolean allCanSpawn = true;
+                
+                allCanSpawn = allCanSpawn & FORTRESS.canSpawn(fortressPositions.get(closeFortress), netherBiomeSource);
+                allCanSpawn = allCanSpawn & VILLAGE.canSpawn(villagePositions.get(closeVillage), overworldBiomeSource);
+                allCanSpawn = allCanSpawn & DESERT_PYRAMID.canSpawn(desertPyramidPositions.get(closeDesertPyramid), overworldBiomeSource);
+                Biome villageBiome = overworldBiomeSource.getBiome(villagePositions.get(closeVillage).toBlockPos());
+
+                if (allCanSpawn && villageBiome.getName()=="savanna"){
+                    seedFound = true;
+                    break;
+                }
+            }
+        }
+
+        return worldSeed;
     }
 }
