@@ -3,12 +3,150 @@
  */
 package minecraft.speedrun.practice.seeds;
 
+import kaptainwutax.featureutils.structure.Shipwreck;
+import kaptainwutax.biomeutils.biome.Biome;
+import kaptainwutax.biomeutils.biome.Biomes;
+import kaptainwutax.biomeutils.source.BiomeSource;
+import kaptainwutax.featureutils.structure.BastionRemnant;
+import kaptainwutax.featureutils.structure.Fortress;
+import kaptainwutax.featureutils.structure.RegionStructure;
+import kaptainwutax.mcutils.rand.ChunkRand;
+import kaptainwutax.mcutils.rand.seed.StructureSeed;
+import kaptainwutax.mcutils.state.Dimension;
+import kaptainwutax.mcutils.util.math.DistanceMetric;
+import kaptainwutax.mcutils.util.pos.CPos;
+import kaptainwutax.mcutils.util.pos.RPos;
+import kaptainwutax.mcutils.version.MCVersion;
+
+import java.util.ArrayList;
+import java.util.Random;
+
 public class App {
-    public String getGreeting() {
-        return "Hello World!";
+    public static void main(String[] args) {
+        System.out.println(getShipwreckFastionSeed());
     }
 
-    public static void main(String[] args) {
-        System.out.println(new App().getGreeting());
+    /**
+     * Returns a seed for practicing hypermodern stratgies with a close shipwreck, bastion, and fortress. 
+     * Unlike FSG, positions are not guaranteed and neither are blind distances.
+     * @return a practice seed
+     */
+    public static long getShipwreckFastionSeed(){
+
+        Random javaRandom = new Random();
+        ChunkRand chunkRand = new ChunkRand();
+        final MCVersion VERSION = MCVersion.v1_16_1;
+        final Shipwreck SHIPWRECK = new Shipwreck(VERSION);
+        final RegionStructure<?,?> SHIPWRECK_STRUCTURE = SHIPWRECK;
+        final BastionRemnant BASTION = new BastionRemnant(VERSION);
+        final RegionStructure<?, ?> BASTION_STRUCTURE = BASTION;
+        final Fortress FORTRESS = new Fortress(VERSION);
+        final RegionStructure<?, ?> FORTRESS_STRUCTURE = FORTRESS;
+        
+        
+        final RPos[] netherRegions = new RPos[] {
+            new RPos(0, 0, FORTRESS_STRUCTURE.getSpacing() * 16),
+            new RPos(0, -1, FORTRESS_STRUCTURE.getSpacing() * 16),
+            new RPos(-1, 0, FORTRESS_STRUCTURE.getSpacing() * 16),
+            new RPos(-1, -1, FORTRESS_STRUCTURE.getSpacing() * 16)
+        };
+        final RPos[] shipwreckRegions = new RPos[] {
+            new RPos(0, 0, SHIPWRECK_STRUCTURE.getSpacing() * 16),
+            new RPos(0, -1, SHIPWRECK_STRUCTURE.getSpacing() * 16),
+            new RPos(-1, 0, SHIPWRECK_STRUCTURE.getSpacing() * 16),
+            new RPos(-1, -1, SHIPWRECK_STRUCTURE.getSpacing() * 16)
+        };
+
+
+        long structureStartingPoint = javaRandom.nextLong() % (1L << 48);
+        boolean seedFound = false;
+        long worldSeed = 0;
+
+        while (!seedFound){
+            structureStartingPoint++;
+            structureStartingPoint = structureStartingPoint % (1L << 48);
+
+            ArrayList<CPos> fortressPositions = new ArrayList<CPos>(netherRegions.length);
+            ArrayList<CPos> bastionPositions = new ArrayList<CPos>(netherRegions.length);
+            ArrayList<CPos> shipwreckPositions = new ArrayList<CPos>(shipwreckRegions.length);
+
+            for (RPos rPos : netherRegions){
+                CPos fortress = FORTRESS_STRUCTURE.getInRegion(structureStartingPoint, rPos.getX(), rPos.getZ(), chunkRand);
+                CPos bastion = BASTION_STRUCTURE.getInRegion(structureStartingPoint, rPos.getX(), rPos.getZ(), chunkRand);
+                if (fortress != null){
+                    fortressPositions.add(fortress);
+                }
+                if (bastion != null){
+                    bastionPositions.add(bastion);
+                }
+            }
+
+            for (RPos rPos : shipwreckRegions){
+                CPos ship = SHIPWRECK_STRUCTURE.getInRegion(structureStartingPoint, rPos.getX(), rPos.getZ(), chunkRand);
+                if (ship != null){
+                    shipwreckPositions.add(ship);
+                }
+            }
+
+            boolean closeShip = false;
+            boolean closeFastion = false;
+            int closeBastion = -1;
+            int closeFortress = -1;
+
+            for (int i = 0; i < bastionPositions.size(); i++){ 
+                if(DistanceMetric.EUCLIDEAN.getDistance(bastionPositions.get(i).getX(), bastionPositions.get(i).getY(), bastionPositions.get(i).getZ()) < 7){
+                    closeBastion = i;
+                    break;
+                }
+            }
+            for (int i = 0; i < fortressPositions.size(); i++){ 
+                if(DistanceMetric.EUCLIDEAN.getDistance(fortressPositions.get(i).getX(), fortressPositions.get(i).getY(), fortressPositions.get(i).getZ()) < 7){
+                    closeFortress = i;
+                    break;
+                }
+            }
+
+            closeFastion = (closeBastion!=-1) && (closeFortress!=-1);
+
+            for (CPos s : shipwreckPositions){
+                if(DistanceMetric.EUCLIDEAN.getDistance(s.getX(), s.getY(), s.getZ()) < 10){
+                    closeShip = true;
+                }
+            }
+
+            if (!closeShip || !closeFastion) continue;
+
+            for (long upperBits = 0; upperBits < 1L << 16; upperBits++){
+                worldSeed = StructureSeed.toWorldSeed(structureStartingPoint, upperBits);
+                BiomeSource overworldBiomeSource = BiomeSource.of(Dimension.OVERWORLD, VERSION, worldSeed);
+                BiomeSource netherBiomeSource = BiomeSource.of(Dimension.NETHER, VERSION, worldSeed);
+                boolean allCanSpawn = true;
+                
+                allCanSpawn = allCanSpawn & FORTRESS.canSpawn(fortressPositions.get(closeFortress), netherBiomeSource);
+                allCanSpawn = allCanSpawn & BASTION.canSpawn(bastionPositions.get(closeBastion), netherBiomeSource);
+
+                for (CPos s : shipwreckPositions){
+                    if(DistanceMetric.EUCLIDEAN.getDistance(s.getX(), s.getY(), s.getZ()) < 10){
+                        allCanSpawn = allCanSpawn & SHIPWRECK.canSpawn(s, overworldBiomeSource);
+                    }
+                }
+                if (allCanSpawn){
+                    seedFound = true;
+                    break;
+                }
+            }
+        }
+
+        return worldSeed;
+    }
+
+    /**
+     * Returns a seed for 1.14 practice, with an acacia village and 
+     * a desert temple close together, with a close fortress in the 
+     * nether. 
+     * @return a practice seed
+     */
+    public static long get1_14ClassicSeed(){
+        return 1L;
     }
 }
